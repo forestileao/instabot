@@ -9,8 +9,5 @@ setup(
     ],
     install_requires=[
         'requests>=2.24.0',
-        'numpy>=1.19.0',
-        'PyNaCl>=1.4.0',
-        'crytodomex>=3.9.8',
     ],
 )
