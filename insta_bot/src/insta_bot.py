@@ -4,7 +4,6 @@ import base64
 import json
 
 
-
 class InstaBot:
     def __init__(self, username, password):
         self.username = username
@@ -41,7 +40,7 @@ class InstaBot:
 
             if login['authenticated']:
                 self.user_id = login['userId']
-                print(f'> Logged in (user:{self.username})')
+                print(f'> Logged in (user:{self.username}, id:{self.user_id})')
             else:
                 print('> Erron on login authentication')
             return login
@@ -49,4 +48,33 @@ class InstaBot:
         #In case of refused connection
         except requests.exceptions.ConnectionError:
             print("> Connection refused")
+
+
+    def map_followers(self):
+        self.followers = []
+        foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":true,"first":24'+'}'
+        count = 0
+        cursor = ''
+        while True:
+            if count == 0:
+                foll_req = self.session.get(foll_url)
+                self.session.headers.update({'x-csrftoken':foll_req.cookies['csrftoken']})
+                foll_req_list = json.loads(foll_req.content.decode('utf-8'))
+                self.foll_num = foll_req_list["data"]['user']['edge_followed_by']['count']
+            else:
+                foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":false,"first":12,"after":"{cursor}"'+'}'
+                foll_req = self.session.get(foll_url)
+                self.session.headers.update({'x-csrftoken':foll_req.cookies['csrftoken']})
+                foll_req_list = json.loads(foll_req.content.decode('utf-8'))
+
+            foll_req_list = foll_req_list['data']['user']['edge_followed_by']
+            for user in foll_req_list['edges']:
+                self.followers.append(user['node']['username'])
+                count += 1
+            cursor = foll_req_list['page_info']['end_cursor']
+            if count == self.foll_num:
+                break
+        print(self.foll_num)
+        print(self.followers)
+
 
