@@ -8,6 +8,6 @@ setup(
         'insta_bot',
     ],
     install_requires=[
-        'requests>=2.24.0',
+        'requests~=2.24.0',
     ],
 )
