@@ -1,7 +1,9 @@
 from os import path
 import time
+from time import sleep
 import requests
 import json
+from threading import Thread
 
 
 class InstaBot:
@@ -11,9 +13,10 @@ class InstaBot:
         self.base_url = 'https://www.instagram.com'
 
 
-    def get_userid(self, user):
-        user_url = f'https://instagram.com/{user}/?__a=1'
-        req = self.session.get(user_url)
+    def get_userid(self, username):
+        url = f'https://instagram.com/{username}/?__a=1'
+        req = self.session.get(url)
+
         if req.status_code == 200:
             req = json.loads(req.content.decode('utf-8'))['graphql']['user']
             return req['id']
@@ -21,6 +24,7 @@ class InstaBot:
             return None
 
 
+    # Generates a string to use as enc_password during the login request
     def generate_encrypted_password(self):
         str_time = str(int(time.time()))
         return '#PWD_INSTAGRAM_BROWSER:0:' + str_time + ':' + self.password
@@ -28,8 +32,7 @@ class InstaBot:
 
     def login(self):
         login_url = self.base_url + '/accounts/login/ajax/'
-        user_agent = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko)\
-            Chrome/59.0.3071.115 Safari/537.36'
+        user_agent = 'Mozilla/5.0 (X11; CrOS x86_64 8172.45.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.64 Safari/537.36'
 
         #Setting some headers
         self.session = requests.Session()
@@ -51,8 +54,10 @@ class InstaBot:
             if login['authenticated']:
                 self.user_id = login['userId']
                 print(f'> Logged in (user:{self.username}, id:{self.user_id})')
+
             else:
                 print('> Erron on login authentication')
+                print(login)
             return login
 
         #In case of refused connection
@@ -60,35 +65,76 @@ class InstaBot:
             print("> Connection refused")
 
 
-    def map_followers(self):
-        print('*** Mapping followers ***')
-        self.followers = []
-        foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":true,"first":24'+'}'
+    def map_user_followers(self, username, limit=1000):
+        print(f'*** Mapping {limit} followers from {username}***')
+        self.user_followers = []
+        self.foll_num = int(0)
+        user_id = self.get_userid(username)
         count = 0
         cursor = ''
-
         while True:
+            foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+ f'"id":"{user_id}","include_reel":true,"fetch_mutual":true,"first":24'+'}'
             if count == 0:
                 foll_req = self.session.get(foll_url)
                 foll_req_list = json.loads(foll_req.content.decode('utf-8'))
                 self.foll_num = foll_req_list["data"]['user']['edge_followed_by']['count']
             else:
-                foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":false,"first":12,"after":"{cursor}"'+'}'
+                foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+ f'"id":"{user_id}","include_reel":true,"fetch_mutual":false,"first":12,"after":"{cursor}"'+'}'
                 foll_req = self.session.get(foll_url)
                 foll_req_list = json.loads(foll_req.content.decode('utf-8'))
+
+            if foll_req_list['status'] == 'fail':
+                break
+
+            foll_req_list = foll_req_list['data']['user']['edge_followed_by']
+            for user in foll_req_list['edges']:
+                self.user_followers.append({
+                    'username':user['node']['username'],
+                    'id':user['node']['id']
+                })
+                count += 1
+
+            cursor = foll_req_list['page_info']['end_cursor']
+            if count == limit:
+                with open(path.dirname(__file__)+'/../cache/target-followers.json', 'w') as outfile:
+                    json.dump(self.followers, outfile)
+                break
+
+
+
+    def map_followers(self):
+        print('*** Mapping followers ***')
+        self.followers = []
+        self.foll_num = int(0)
+        count = 0
+        cursor = ''
+        while True:
+            foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":true,"first":24'+'}'
+            if count == 0:
+                foll_req = self.session.get(foll_url)
+                foll_req_list = json.loads(foll_req.content.decode('utf-8'))
+                self.foll_num = int(foll_req_list["data"]['user']['edge_followed_by']['count'])
+            else:
+                foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":false,"first":12,"after":"{cursor}"'+'}'
+                foll_req = self.session.get(foll_url)
+                print(foll_req.status_code)
+                foll_req_list = json.loads(foll_req.content.decode('utf-8'))
+
+            if foll_req_list['status'] == 'fail':
+                break
 
             foll_req_list = foll_req_list['data']['user']['edge_followed_by']
             for user in foll_req_list['edges']:
                 self.followers.append({
                     'username':user['node']['username'],
                     'id':user['node']['id']
-		})
+                })
                 count += 1
-                print('>', user['node']['username'], 'added')
+                #print('>', user['node']['username'], 'added to follower list')
 
             cursor = foll_req_list['page_info']['end_cursor']
             if count == self.foll_num:
-                with open(path.dirname(__file__)+'/followers.json', 'w') as outfile:
+                with open(path.dirname(__file__)+'/../cache/followers.json', 'w') as outfile:
                     json.dump(self.followers, outfile)
                 break
 
@@ -106,110 +152,143 @@ class InstaBot:
                 foll_req_list = json.loads(foll_req.content.decode('utf-8'))
                 self.following_num = foll_req_list["data"]['user']['edge_follow']['count']
             else:
-                foll_url = self.base_url+'/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":false,"first":12,"after":"{cursor}"'+'}'
+                foll_url = self.base_url+'/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":false,"first":24,"after":"{cursor}"'+'}'
                 foll_req = self.session.get(foll_url)
                 foll_req_list = json.loads(foll_req.content.decode('utf-8'))
 
-            foll_req_list = foll_req_list['data']['user']['edge_follow']
-            for user in foll_req_list['edges']:
+            if foll_req_list['status'] == 'fail':
+                break
+
+            for user in foll_req_list['data']['user']['edge_follow']['edges']:
                 self.following.append({
                     'username':user['node']['username'],
                     'id':user['node']['id']
 		})
                 count += 1
-                print('>', user['node']['username'], 'added')
+                #print('>', user['node']['username'], 'added to list of people you are following')
 
-            cursor = foll_req_list['page_info']['end_cursor']
+            cursor = foll_req_list['data']['user']['edge_follow']['page_info']['end_cursor']
+
             if count == self.following_num:
-                with open(path.dirname(__file__)+'/following.json', 'w') as outfile:
-                    json.dump(self.followers, outfile)
+                with open(path.dirname(__file__)+'/../cache/following.json', 'w') as outfile:
+                    json.dump(self.following, outfile)
                 break
 
 
     def follow_user(self, userid):
         url = self.base_url + f'/web/friendships/{userid}/follow/'
-        self.session.post(url)
+        req = self.session.post(url)
+        print('['+str(req.status_code)+']', end='')
+        if req.content.decode('utf-8')[:3] == 'Ple' or req.status_code != 200:
+            return False
+        return True
 
 
     def unfollow_user(self, userid):
         url = self.base_url + f'/web/friendships/{userid}/unfollow/'
-        self.session.post(url)
+        req = self.session.post(url)
+        print('['+str(req.status_code)+']', end='')
+        if req.content.decode('utf-8')[:3] == 'Ple' or req.status_code != 200:
+            return False
+        return True
 
 
     def get_suggested_followers(self):
         query = {
             'fetch_media_count': 0,
-            'fetch_suggested_count': 50,
+            'fetch_suggested_count': 30,
             'ignore_cache': True,
             'filter_followed_friends': True,
             'seen_ids': [],
             'include_reel': True
         }
+
         sug_list = []
         url = self.base_url + '/graphql/query/?query_hash=ed2e3ff5ae8b96717476b62ef06ed8cc&variables=' + json.dumps(query)
 
         req = self.session.get(url)
         if req.status_code == 200:
+            print('> Getting Suggested')
             req = json.loads(req.content.decode('utf-8'))
+            print(req['status'])
 
             for foll in req['data']['user']['edge_suggested_users']['edges']:
-                if foll['node']['description'][:3] in ['Fol', 'Sug']:
-                    sug_list.append({
-                        'username': foll['node']['user']['username'],
-                        'id': foll['node']['user']['id']
-                    })
+                if foll['node']['description'][:3] == 'Ins':
+                    continue
+                sug_list.append({
+                    'username': foll['node']['user']['username'],
+                    'id': foll['node']['user']['id']
+                })
             return sug_list
         else:
             return None
 
 
-    def is_time(self): # Checks if it's time to unfollow initialize unfollowing
-        gen_time = time.gmtime()
-        hour = gm_time.tm_hour - self.init_time.tm_hour
-        minutes =  gen_time.tm_min - self.init_time.tm_min
-        if hour < 0:
-            hour += 24
-            hour *= 60
-        else:
-            hour *= 60
-
-        if minutes < 0:
-            minutes +=60
-
-        total_min = hour + minutes
-        if total_min >= 60: # Here, the number represents he time chosen to start the process
-            return True
-        return False
-
-
-    def start(self):
-        self.init_time = time.gmtime()
-        while True:
-            print('*** Following Users ***')
-            for i in range(3):
-                for user in self.get_suggested_followers():
-                    try:
-                        self.follow_user(user['id'])
-                        print(f'> Followed {user["username"]}')
-                    except:
-                        print('*** Ocurred an Error while tring to follow users ***')
-                        print('> Waiting 30 seconds until next request')
-                        sleep(30)
-                        break
-            if self.is_time():
-                self.init_time = time.gmtime()
-                print('\n-=-=-=-=-= Time to Unfollow who is not following you -=-=-=-=-=')
+    def just_follow(self):
+        while self.foll_num < self.hoped_foll or self.other_user:
+            if not self.other_user:
                 self.map_followers()
-                self.map_following()
-                for count, user in enumerate(self.following):
-                    for foll in self.followers:
-                        if user['username'] == foll['username']:
-                            break
-                        elif count+1 == self.following_num:
-                            try:
-                                self.unfollow_user(user['id'])
-                                print(f'> {user["username"]} was unfollowed')
-                            except:
-                                print(f'> ERROR while tring to unfollow {user["username"]}, waiting 30s until next request.')
-                                sleep(30)
+                print('*** Following Users ***')
+                try:
+                    for user in self.get_suggested_followers():
+                        if self.follow_user(user['id']):
+                            print(f'> Followed {user["username"]}')
+                        else:
+                            print('> Waiting 10 min until next FOLLOW request')
+                            sleep(10 * 60)
+                except:
+                    print('> Error in suggested')
+                    sleep(3 * 60)
+            else:
+                self.map_user_followers(username=self.target_username)
+                print('*** Following Users ***')
+                try:
+                    for user in self.user_followers:
+                        if self.follow_user(user['id']):
+                            print(f'> Followed {user["username"]}')
+                        else:
+                            print('> Waiting 10 min until next FOLLOW request')
+                            sleep(10 * 60)
+                except:
+                    print('> Error in suggested')
+                    sleep(3 * 60)
 
+
+    def just_unfollow(self):
+        self.map_followers()
+        self.map_following()
+        while self.following_num > self.foll_num or self.unfollow_all_not_followers:
+            print("[*] Followers:", self.foll_num)
+            print("[*] Following:", self.following_num)
+            for following in self.following:
+                count = 1
+                if count >= 50:
+                    break
+                else:
+                    if {'username':following['username'], 'id':following['id']} in self.followers:
+                        count +=1
+                        continue
+                    else:
+                        while not self.unfollow_user(following['id']):
+                            print('> Waiting 10 minutes until next UNFOLLOW request.')
+                            sleep(10 * 60)
+                        print(f'> Unfollowed {following["username"]}')
+            self.map_followers()
+            self.map_following()
+
+
+    def start(self, other_user=False, target_username='', hoped_foll=2000, unfollow_all_not_followers=True):
+        self.init_time = time.gmtime()
+        self.unfollow_all_not_followers = unfollow_all_not_followers
+        self.other_user = other_user
+
+        if self.other_user:
+            self.target_username = target_username
+
+        self.hoped_foll = hoped_foll
+        self.login()
+
+        fol = Thread(target=self.just_follow)
+        fol.start()
+        unfol = Thread(target=self.just_unfollow)
+        unfol.start()
