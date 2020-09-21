@@ -68,7 +68,7 @@ class InstaBot:
     def map_user_followers(self, username, limit=1000):
         print(f'*** Mapping {limit} followers from {username}***')
         self.user_followers = []
-        self.foll_num = int(0)
+        self.user_foll_num = int(0)
         user_id = self.get_userid(username)
         count = 0
         cursor = ''
@@ -77,7 +77,7 @@ class InstaBot:
             if count == 0:
                 foll_req = self.session.get(foll_url)
                 foll_req_list = json.loads(foll_req.content.decode('utf-8'))
-                self.foll_num = foll_req_list["data"]['user']['edge_followed_by']['count']
+                self.user_foll_num = foll_req_list["data"]['user']['edge_followed_by']['count']
             else:
                 foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+ f'"id":"{user_id}","include_reel":true,"fetch_mutual":false,"first":12,"after":"{cursor}"'+'}'
                 foll_req = self.session.get(foll_url)
@@ -88,6 +88,8 @@ class InstaBot:
 
             foll_req_list = foll_req_list['data']['user']['edge_followed_by']
             for user in foll_req_list['edges']:
+                if self.verbose:
+                    print(f'> {user["node"]["username"]} added to target followers list')
                 self.user_followers.append({
                     'username':user['node']['username'],
                     'id':user['node']['id']
@@ -117,7 +119,6 @@ class InstaBot:
             else:
                 foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":false,"first":12,"after":"{cursor}"'+'}'
                 foll_req = self.session.get(foll_url)
-                print(foll_req.status_code)
                 foll_req_list = json.loads(foll_req.content.decode('utf-8'))
 
             if foll_req_list['status'] == 'fail':
@@ -130,7 +131,8 @@ class InstaBot:
                     'id':user['node']['id']
                 })
                 count += 1
-                #print('>', user['node']['username'], 'added to follower list')
+                if self.verbose:
+                    print('>', user['node']['username'], 'added to follower list')
 
             cursor = foll_req_list['page_info']['end_cursor']
             if count == self.foll_num:
@@ -165,7 +167,8 @@ class InstaBot:
                     'id':user['node']['id']
 		})
                 count += 1
-                #print('>', user['node']['username'], 'added to list of people you are following')
+                if self.verbose:
+                    print('>', user['node']['username'], 'added to list of people you are following')
 
             cursor = foll_req_list['data']['user']['edge_follow']['page_info']['end_cursor']
 
@@ -225,9 +228,10 @@ class InstaBot:
 
 
     def just_follow(self):
-        while self.foll_num < self.hoped_foll or self.other_user:
-            if not self.other_user:
-                self.map_followers()
+        if not self.other_user:
+            self.map_followers()
+            while self.foll_num < self.hoped_foll or self.other_user:
+
                 print('*** Following Users ***')
                 try:
                     for user in self.get_suggested_followers():
@@ -239,8 +243,9 @@ class InstaBot:
                 except:
                     print('> Error in suggested')
                     sleep(3 * 60)
-            else:
-                self.map_user_followers(username=self.target_username)
+        else:
+            self.map_user_followers(username=self.target_username)
+            while self.user_foll_num < self.hoped_foll or self.other_user:
                 print('*** Following Users ***')
                 try:
                     for user in self.user_followers:
@@ -277,13 +282,15 @@ class InstaBot:
             self.map_following()
 
 
-    def start(self, other_user=False, target_username='', hoped_foll=2000, unfollow_all_not_followers=True):
-        self.init_time = time.gmtime()
+    def start(self, target_username='', hoped_foll=2000, unfollow_all_not_followers=True, verbose=False):
+        #self.init_time = time.gmtime()  Not used yet
         self.unfollow_all_not_followers = unfollow_all_not_followers
-        self.other_user = other_user
+        self.other_user = False
+        self.verbose = verbose
 
-        if self.other_user:
+        if len(target_username) > 0:
             self.target_username = target_username
+            self.other_user = True
 
         self.hoped_foll = hoped_foll
         self.login()
