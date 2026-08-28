@@ -13,16 +13,22 @@ $ pip3 install -e . # This command will install the request lib
 ```
 
 ### Simple usage
- Put your credentials and the target username that you want to map its followers in credentials.json, located in the insta_bot package. Like this example:
+Copy `insta_bot/credentials.example.json` to `insta_bot/credentials.json` and fill in your
+credentials and the target username that you want to map its followers:
+```sh
+$ cp insta_bot/credentials.example.json insta_bot/credentials.json
+```
 ```json
 {
     "username": "your_username",
     "password": "your_password",
     "target_username": "john.doe"
 }
-  ```
-Then, execute main.py and the standard bot commands will be executed.
+```
+`insta_bot/credentials.json` holds real secrets and is listed in `.gitignore`, so it will
+never be committed. Then, from the repository root, execute main.py and the standard bot
+commands will be executed.
 ```sh
-$ python3 main.py
+$ python3 insta_bot/main.py
 ```
 

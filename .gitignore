@@ -2,6 +2,12 @@
 *.egg-info
 __pycache__
 venv
-followers.json
-target-followes.json
-following.json
+.pytest_cache
+
+# Cache files generated at runtime (see insta_bot/src/insta_bot.py)
+insta_bot/cache/followers.json
+insta_bot/cache/target-followers.json
+insta_bot/cache/following.json
+
+# Real credentials must never be committed; use credentials.example.json as a template
+insta_bot/credentials.json
