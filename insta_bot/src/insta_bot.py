@@ -72,6 +72,7 @@ class InstaBot:
         user_id = self.get_userid(username)
         count = 0
         cursor = ''
+        cache_path = path.dirname(__file__) + '/../cache/target-followers.json'
         while True:
             foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+ f'"id":"{user_id}","include_reel":true,"fetch_mutual":true,"first":24'+'}'
             if count == 0:
@@ -84,6 +85,10 @@ class InstaBot:
                 foll_req_list = json.loads(foll_req.content.decode('utf-8'))
 
             if foll_req_list['status'] == 'fail':
+                # Save whatever we managed to collect before the request failed
+                # so a partial run is not lost.
+                with open(cache_path, 'w') as outfile:
+                    json.dump(self.user_followers, outfile)
                 break
 
             foll_req_list = foll_req_list['data']['user']['edge_followed_by']
@@ -98,8 +103,8 @@ class InstaBot:
 
             cursor = foll_req_list['page_info']['end_cursor']
             if count == limit:
-                with open(path.dirname(__file__)+'/../cache/target-followers.json', 'w') as outfile:
-                    json.dump(self.followers, outfile)
+                with open(cache_path, 'w') as outfile:
+                    json.dump(self.user_followers, outfile)
                 break
 
 
@@ -110,6 +115,7 @@ class InstaBot:
         self.foll_num = int(0)
         count = 0
         cursor = ''
+        cache_path = path.dirname(__file__) + '/../cache/followers.json'
         while True:
             foll_url = self.base_url+'/graphql/query/?query_hash=c76146de99bb02f6415203be841dd25a&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":true,"first":24'+'}'
             if count == 0:
@@ -122,6 +128,10 @@ class InstaBot:
                 foll_req_list = json.loads(foll_req.content.decode('utf-8'))
 
             if foll_req_list['status'] == 'fail':
+                # Save whatever we managed to collect before the request failed
+                # so a partial run is not lost.
+                with open(cache_path, 'w') as outfile:
+                    json.dump(self.followers, outfile)
                 break
 
             foll_req_list = foll_req_list['data']['user']['edge_followed_by']
@@ -136,7 +146,7 @@ class InstaBot:
 
             cursor = foll_req_list['page_info']['end_cursor']
             if count == self.foll_num:
-                with open(path.dirname(__file__)+'/../cache/followers.json', 'w') as outfile:
+                with open(cache_path, 'w') as outfile:
                     json.dump(self.followers, outfile)
                 break
 
@@ -147,6 +157,7 @@ class InstaBot:
         foll_url = self.base_url+'/graphql/query/?query_hash=d04b0a864b4b54837c0d870b0e77e076&variables={'+f'"id":"{self.user_id}","include_reel":true,"fetch_mutual":true,"first":24'+'}'
         count = 0
         cursor = ''
+        cache_path = path.dirname(__file__) + '/../cache/following.json'
 
         while True:
             if count == 0:
@@ -159,13 +170,17 @@ class InstaBot:
                 foll_req_list = json.loads(foll_req.content.decode('utf-8'))
 
             if foll_req_list['status'] == 'fail':
+                # Save whatever we managed to collect before the request failed
+                # so a partial run is not lost.
+                with open(cache_path, 'w') as outfile:
+                    json.dump(self.following, outfile)
                 break
 
             for user in foll_req_list['data']['user']['edge_follow']['edges']:
                 self.following.append({
                     'username':user['node']['username'],
                     'id':user['node']['id']
-		})
+                })
                 count += 1
                 if self.verbose:
                     print('>', user['node']['username'], 'added to list of people you are following')
@@ -173,7 +188,7 @@ class InstaBot:
             cursor = foll_req_list['data']['user']['edge_follow']['page_info']['end_cursor']
 
             if count == self.following_num:
-                with open(path.dirname(__file__)+'/../cache/following.json', 'w') as outfile:
+                with open(cache_path, 'w') as outfile:
                     json.dump(self.following, outfile)
                 break
 
@@ -240,8 +255,8 @@ class InstaBot:
                         else:
                             print('> Waiting 10 min until next FOLLOW request')
                             sleep(10 * 60)
-                except:
-                    print('> Error in suggested')
+                except (TypeError, KeyError, requests.exceptions.RequestException) as error:
+                    print(f'> Error in suggested: {error}')
                     sleep(3 * 60)
         else:
             self.map_user_followers(username=self.target_username)
@@ -254,9 +269,34 @@ class InstaBot:
                         else:
                             print('> Waiting 10 min until next FOLLOW request')
                             sleep(10 * 60)
-                except:
-                    print('> Error in suggested')
+                except (TypeError, KeyError, requests.exceptions.RequestException) as error:
+                    print(f'> Error in suggested: {error}')
                     sleep(3 * 60)
+
+
+    def unfollow_non_followers(self, limit=50):
+        """Unfollow up to `limit` accounts from self.following that are not
+        present in self.followers.
+
+        Extracted from just_unfollow so the batching/skip logic can be unit
+        tested without hitting the network or relying on threads/sleeps.
+        Returns the number of accounts unfollowed in this batch.
+        """
+        count = 0
+        for following in self.following:
+            if count >= limit:
+                break
+
+            if {'username': following['username'], 'id': following['id']} in self.followers:
+                # Already a mutual follower, nothing to unfollow here.
+                continue
+
+            while not self.unfollow_user(following['id']):
+                print('> Waiting 10 minutes until next UNFOLLOW request.')
+                sleep(10 * 60)
+            print(f'> Unfollowed {following["username"]}')
+            count += 1
+        return count
 
 
     def just_unfollow(self):
@@ -265,19 +305,7 @@ class InstaBot:
         while self.following_num > self.foll_num or self.unfollow_all_not_followers:
             print("[*] Followers:", self.foll_num)
             print("[*] Following:", self.following_num)
-            for following in self.following:
-                count = 1
-                if count >= 50:
-                    break
-                else:
-                    if {'username':following['username'], 'id':following['id']} in self.followers:
-                        count +=1
-                        continue
-                    else:
-                        while not self.unfollow_user(following['id']):
-                            print('> Waiting 10 minutes until next UNFOLLOW request.')
-                            sleep(10 * 60)
-                        print(f'> Unfollowed {following["username"]}')
+            self.unfollow_non_followers(limit=50)
             self.map_followers()
             self.map_following()
 
