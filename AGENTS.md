@@ -113,7 +113,26 @@ There is no CLI flag support today — all behavior is controlled via
   up (no pytest/unittest config, no CI). Mock all network calls — never make
   tests hit real Instagram endpoints.
 
-## 8. Gotchas / known issues
+## 8. Testing
+
+No test suite exists yet. When adding tests for this project:
+
+- Use `pytest` (`pip install pytest`, then run `pytest` from the repo root).
+- Put tests under a top-level `tests/` directory, mirroring the source
+  layout (e.g. `tests/test_insta_bot.py` for `insta_bot/src/insta_bot.py`).
+- Mock every `requests.Session`/`requests` call with `unittest.mock` (e.g.
+  `unittest.mock.patch`) so tests never perform real HTTP requests against
+  Instagram.
+- Favor testing pure, side-effect-free logic in isolation — e.g.
+  `generate_encrypted_password`, response-parsing steps, or the
+  follow/unfollow decision logic in `just_unfollow` — over the network- and
+  thread-bound orchestration methods (`start`, `just_follow`,
+  `just_unfollow`), which require heavier mocking to test meaningfully.
+- When testing code that writes to `insta_bot/cache/`, redirect output to a
+  temporary directory (e.g. via `tmp_path` fixtures) instead of writing into
+  the real `cache/` folder.
+
+## 9. Gotchas / known issues
 
 Be aware of these so you don't "fix" things that weren't asked for, or get
 surprised by existing behavior:
@@ -142,7 +161,7 @@ surprised by existing behavior:
   backoffs — removing/shortening them risks getting the account rate-limited
   or banned.
 
-## 9. Safety / legal note
+## 10. Safety / legal note
 
 Automating actions on Instagram (mass following/unfollowing, scraping
 private GraphQL endpoints) may violate Instagram's Terms of Service and can
