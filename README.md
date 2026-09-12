@@ -21,8 +21,14 @@ $ pip3 install -e . # This command will install the request lib
     "target_username": "john.doe"
 }
   ```
-Then, execute main.py and the standard bot commands will be executed.
+Then, run the bot module and the standard bot commands will be executed.
 ```sh
-$ python3 main.py
+$ python3 -m insta_bot.main
+```
+
+### Running the tests
+```sh
+$ pip3 install -e .[test]
+$ pytest
 ```
 

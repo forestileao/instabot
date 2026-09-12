@@ -10,4 +10,7 @@ setup(
     install_requires=[
         'requests~=2.24.0',
     ],
+    extras_require={
+        'test': ['pytest'],
+    },
 )
