@@ -6,8 +6,14 @@ setup(
     description='An Instagram Bot that follows the followers from a user-target that you choose and unfollows who doesn\'t follows you.',
     packages=[
         'insta_bot',
+        'insta_bot.src',
     ],
     install_requires=[
         'requests~=2.24.0',
     ],
+    extras_require={
+        'test': [
+            'pytest>=7.0',
+        ],
+    },
 )

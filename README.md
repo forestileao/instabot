@@ -26,3 +26,11 @@ Then, execute main.py and the standard bot commands will be executed.
 $ python3 main.py
 ```
 
+### Running the tests
+The project ships with a unit test suite that mocks all network calls, so it
+can run without real Instagram credentials or an internet connection.
+```sh
+$ pip3 install -e .[test]
+$ pytest
+```
+
