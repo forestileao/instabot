@@ -26,3 +26,10 @@ Then, execute main.py and the standard bot commands will be executed.
 $ python3 main.py
 ```
 
+### Running tests
+The project ships with an offline unit test suite (no real Instagram
+requests are made). From the repository root, run:
+```sh
+$ python3 -m unittest discover -s tests
+```
+
