@@ -26,3 +26,10 @@ Then, execute main.py and the standard bot commands will be executed.
 $ python3 main.py
 ```
 
+### Running the tests
+Install the development dependencies and run the test suite with `pytest`:
+```sh
+$ pip3 install -r requirements-dev.txt
+$ pytest
+```
+
