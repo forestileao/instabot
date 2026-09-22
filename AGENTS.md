@@ -93,6 +93,9 @@ follow that don't follow you back.
   (e.g. `> Followed {username}`, `*** Mapping followers ***`).
 - Credentials are always read from `credentials.json` at runtime; never
   hard-code usernames, passwords, or tokens in source.
+- No test suite, linter, or CI configuration exists in this repository;
+  there is nothing to run beyond `python3 main.py` and no automated checks
+  to satisfy before committing.
 
 ## Known rough edges (do not "fix" silently, but be aware of them)
 - GraphQL `query_hash` values are hard-coded strings tied to Instagram's
