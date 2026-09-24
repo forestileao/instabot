@@ -57,8 +57,10 @@ follow that don't follow you back.
   `?__a=1` endpoint.
 - `map_followers()` / `map_user_followers(username, limit=1000)` - page
   through the `edge_followed_by` GraphQL query (hard-coded `query_hash`) to
-  build `self.followers` / `self.user_followers`, then dump the result to
-  the `cache/` folder as JSON.
+  build `self.followers` / `self.user_followers`, then dump a snapshot to
+  the `cache/` folder as JSON (`cache/followers.json` /
+  `cache/target-followers.json`; see "Known rough edges" below for a bug in
+  what `map_user_followers` actually writes).
 - `map_following()` - same pattern using the `edge_follow` query hash to
   build `self.following` and write `cache/following.json`.
 - `get_suggested_followers()` - calls the suggested-users GraphQL query and
@@ -72,10 +74,17 @@ follow that don't follow you back.
   On errors it prints a message and sleeps.
 - `just_unfollow()` - loop used by the unfollow thread: maps followers and
   following, then unfollows anyone you follow who isn't in your followers
-  list, re-mapping between passes.
+  list, re-mapping between passes. Intended to cap each pass at 50
+  unfollows, but see "Known rough edges" - that cap does not currently
+  work.
 - `start(target_username='', hoped_foll=2000, unfollow_all_not_followers=True, verbose=False)`
   - sets instance flags, calls `login()`, then starts `just_follow` and
-    `just_unfollow` each on its own `Thread`.
+    `just_unfollow` each on its own `Thread`. With the default arguments
+    both threads loop indefinitely: `just_follow` never stops once
+    `target_username` is set (its exit condition is a `hoped_foll` OR
+    `other_user`, and `other_user` is `True` whenever a target is given),
+    and `just_unfollow` never stops while `unfollow_all_not_followers`
+    stays `True` (also the default).
 
 ## Data files
 - Mapped lists are written as JSON under `insta_bot/cache/`:
@@ -101,3 +110,16 @@ follow that don't follow you back.
   that swallow all errors and just sleep and retry.
 - `credentials.json` ships with placeholder values and is not excluded by
   `.gitignore`, so real credentials should not be committed here.
+- `map_user_followers()` writes `self.followers` (the *self* follower
+  list) to `cache/target-followers.json` instead of the `self.user_followers`
+  list it just built - likely a copy/paste bug, so that cache file does not
+  actually reflect the target account's followers.
+- The 50-unfollow-per-pass cap in `just_unfollow()` is dead code: `count`
+  is reset to `1` at the top of every loop iteration instead of being
+  initialized once before the loop, so `if count >= 50: break` never
+  fires as intended.
+- `start()`'s defaults (`unfollow_all_not_followers=True`, and
+  `other_user=True` whenever `target_username` is set) mean the exit
+  conditions in `just_follow`/`just_unfollow` are effectively always true,
+  so both background threads run indefinitely rather than stopping once a
+  goal is met.
