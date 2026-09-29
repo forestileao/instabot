@@ -47,6 +47,20 @@ follow that don't follow you back.
    python3 main.py
    ```
 
+## Checking changes
+The repo has no automated tests, linters, or CI. Use these offline checks,
+which need no credentials or network access:
+```sh
+python3 -m py_compile insta_bot/main.py insta_bot/src/insta_bot.py
+cd insta_bot && python3 -c "from src.insta_bot import InstaBot"
+```
+Run both from the repository root. The import check needs `requests`
+installed (see "Setup and run").
+
+Running `main.py` hits live Instagram endpoints with real credentials and
+follows/unfollows real accounts. Do not run it, and do not commit real
+values to `insta_bot/credentials.json`.
+
 ## Key behaviors (in `src/insta_bot.py`)
 - `login()` - opens a `requests.Session`, grabs a CSRF token from
   instagram.com, encrypts the password with `generate_encrypted_password()`
@@ -80,9 +94,9 @@ follow that don't follow you back.
 ## Data files
 - Mapped lists are written as JSON under `insta_bot/cache/`:
   `followers.json`, `following.json`, and `target-followers.json`.
-- The `.gitignore` lists similarly named files at the repo root
-  (`followers.json`, `following.json`, `target-followes.json`, note the
-  typo) so generated data is not committed.
+- The `.gitignore` lists similarly named files (`followers.json`,
+  `following.json`, `target-followes.json`, note the typo). Because of the
+  typo, the generated `target-followers.json` is not actually ignored.
 
 ## Conventions
 - Standard library plus `requests` only; no other third-party
