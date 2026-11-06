@@ -1,28 +1,36 @@
-# Insta Bot v1.0.0 - By ForestiLeao
+# Insta Bot
 
-### Requirements
- - Python3
- - Python requests module (installed in the next section)
+## Requirements
 
-### Download
-To Download the instagram bot, just execute the command in your terminal:
+- Python 3
+
+## Install
+
+From the repository root, install the package so `setup.py` installs `requests`:
+
 ```sh
-$ git clone https://github.com/forestileao/instabot.git
-$ cd instabot
-$ pip3 install -e . # This command will install the request lib
+pip3 install -e .
 ```
 
-### Simple usage
- Put your credentials and the target username that you want to map its followers in credentials.json, located in the insta_bot package. Like this example:
+## Credentials
+
+Fill `insta_bot/credentials.json` with `username`, `password`, and `target_username`. Use placeholders only:
+
 ```json
 {
-    "username": "your_username",
-    "password": "your_password",
-    "target_username": "john.doe"
+  "username": "your_username",
+  "password": "your_password",
+  "target_username": "target_username"
 }
-  ```
-Then, execute main.py and the standard bot commands will be executed.
-```sh
-$ python3 main.py
 ```
 
+## Run
+
+Change to `insta_bot/` before starting. That directory is required because `main.py` imports `src.insta_bot` and opens `./credentials.json`.
+
+```sh
+cd insta_bot
+python3 main.py
+```
+
+The process logs into Instagram and follows and unfollows real accounts.
