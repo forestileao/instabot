@@ -6,7 +6,7 @@
 
 ## Install
 
-From the repository root, install the package so `setup.py` installs `requests`:
+From the repository root:
 
 ```sh
 pip3 install -e .
@@ -26,7 +26,7 @@ Fill `insta_bot/credentials.json` with `username`, `password`, and `target_usern
 
 ## Run
 
-Change to `insta_bot/` before starting. That directory is required because `main.py` imports `src.insta_bot` and opens `./credentials.json`.
+Change to `insta_bot/` before starting.
 
 ```sh
 cd insta_bot
